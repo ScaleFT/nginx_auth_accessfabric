@@ -1,84 +1,83 @@
---- nginx.spec	2017-10-18 08:08:23.000000000 +0000
-+++ /tmp/nginx.spec	2018-01-26 18:03:40.583087300 +0000
-@@ -26,6 +26,7 @@
- 
- Source0:           http://nginx.org/download/nginx-%{version}.tar.gz
- Source1:           http://nginx.org/download/nginx-%{version}.tar.gz.asc
-+Source2:           https://github.com/ScaleFT/nginx_auth_accessfabric/archive/v1.0.0.tar.gz
+- /tmp/nginx.spec     2018-01-19 15:19:20.654132824 +0000
++++ nginx.spec  2018-01-19 15:58:02.496368245 +0000
+@@ -30,6 +30,7 @@
+ URL:               http://nginx.org/
+
+ Source0:           https://nginx.org/download/nginx-%{version}.tar.gz
++Source1:           https://github.com/ScaleFT/nginx_auth_accessfabric/archive/v1.0.0.tar.gz
  Source10:          nginx.service
  Source11:          nginx.logrotate
  Source12:          nginx.conf
-@@ -86,6 +87,7 @@
- Requires:          nginx-mod-http-xslt-filter = %{epoch}:%{version}-%{release}
- Requires:          nginx-mod-mail = %{epoch}:%{version}-%{release}
- Requires:          nginx-mod-stream = %{epoch}:%{version}-%{release}
-+Requires:          nginx-mod-http-auth-accessfabric = %{epoch}:%{version}-%{release}
- 
+@@ -107,6 +108,8 @@
+ Requires:          nginx-mod-http-xslt-filter%{?_isa} = %{epoch}:%{version}-%{release}
+ Requires:          nginx-mod-mail%{?_isa} = %{epoch}:%{version}-%{release}
+ Requires:          nginx-mod-stream%{?_isa} = %{epoch}:%{version}-%{release}
++Requires:          nginx-mod-http-auth-accessfabric%{?_isa}= %{epoch}:%{version}-%{release}
++
+
  %description all-modules
  %{summary}.
-@@ -168,6 +170,14 @@
+@@ -195,12 +198,21 @@
  %description mod-stream
  %{summary}.
- 
+
 +%package mod-http-auth-accessfabric
 +Group:             System Environment/Daemons
-+Summary:           ScaleFT Accessfabric Auth module 
++Summary:           ScaleFT Accessfabric Auth module
 +Requires:          nginx
-+Requires:          libxjwt-devel
++BuildRequires:     libxjwt-devel
 +
 +%description mod-http-auth-accessfabric
 +%{summary}.
- 
+
  %prep
  %setup -q
-@@ -175,6 +185,9 @@
- 
- cp %{SOURCE200} .
- cp %{SOURCE210} .
-+cp %{SOURCE2} .
-+
+ %patch0 -p0
+-cp %{SOURCE200} %{SOURCE210} %{SOURCE10} %{SOURCE12} .
++cp %{SOURCE200} %{SOURCE210} %{SOURCE10} %{SOURCE12} ${SOURCE1} .
+
 +tar xvf $RPM_SOURCE_DIR/v1.0.0.tar.gz -C $RPM_BUILD_DIR/
- 
- %if 0%{?rhel} < 8
+ %if (0%{?rhel} && 0%{?rhel} < 8)
  sed -i -e 's#KillMode=.*#KillMode=process#g' %{SOURCE10}
-@@ -238,6 +251,7 @@
+ sed -i -e 's#PROFILE=SYSTEM#HIGH:!aNULL:!MD5#' %{SOURCE12}
+@@ -269,6 +281,7 @@
  %endif
      --with-debug \
      --with-cc-opt="%{optflags} $(pcre-config --cflags)" \
 +    --add-dynamic-module="$RPM_BUILD_DIR/nginx_auth_accessfabric-1.0.0" \
      --with-ld-opt="$RPM_LD_FLAGS -Wl,-E" # so the perl module finds its symbols
- 
+
  make %{?_smp_mflags}
-@@ -303,6 +317,8 @@
+@@ -350,6 +363,8 @@
      > %{buildroot}%{_datadir}/nginx/modules/mod-mail.conf
  echo 'load_module "%{_libdir}/nginx/modules/ngx_stream_module.so";' \
      > %{buildroot}%{_datadir}/nginx/modules/mod-stream.conf
 +echo 'load_module "%{_libdir}/nginx/modules/ngx_http_auth_accessfabric_module.so";' \
 +    > %{buildroot}%{_datadir}/nginx/modules/mod-http-auth-accessfabric.conf
- 
+
+ %if %{with filesystem}
  %pre filesystem
- getent group %{nginx_user} > /dev/null || groupadd -r %{nginx_user}
-@@ -344,6 +360,11 @@
-     /usr/bin/systemctl reload nginx.service >/dev/null 2>&1 || :
+@@ -425,6 +440,11 @@
+ %endif
  fi
- 
+
 +%post mod-http-auth-accessfabric
 +if [ $1 -eq 1 ]; then
 +    /usr/bin/systemctl reload nginx.service >/dev/null 2>&1 || :
 +fi
 +
  %preun
+ %if %{with systemd}
  %systemd_preun nginx.service
- 
-@@ -428,6 +449,11 @@
+@@ -533,6 +553,11 @@
  %{_datadir}/nginx/modules/mod-stream.conf
  %{_libdir}/nginx/modules/ngx_stream_module.so
- 
+
 +%files mod-http-auth-accessfabric
 +%{_datadir}/nginx/modules/mod-http-auth-accessfabric.conf
 +%{_libdir}/nginx/modules/ngx_http_auth_accessfabric_module.so
 +
 +
- 
+
  %changelog
- * Wed Oct 18 2017 Luboš Uhliarik <luhliari@redhat.com> - 1:1.12.2-1
+ * Wed Sep 6 2017 Matt Dees <mattdees@amazon.com>
